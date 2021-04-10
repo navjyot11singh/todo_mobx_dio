@@ -41,9 +41,9 @@ class TodoScreen extends StatelessWidget {
           child: Scaffold(
             body: Column(
               children: [
-                AddTodo(),
-                ActionBar(),
-                Description(),
+                // AddTodo(),
+                // ActionBar(),
+                // Description(),
                 TodoListView(),
               ],
             ),
@@ -52,120 +52,181 @@ class TodoScreen extends StatelessWidget {
       );
 }
 
-class AddTodo extends StatelessWidget {
-  final _textController = TextEditingController(text: '');
+// class AddTodo extends StatelessWidget {
+//   final _textController = TextEditingController(text: '');
 
-  @override
-  Widget build(BuildContext context) {
-    final list = Provider.of<TodoList>(context);
+//   @override
+//   Widget build(BuildContext context) {
+//     final list = Provider.of<TodoList>(context);
 
-    return TextField(
-      autofocus: true,
-      decoration: InputDecoration(
-          labelText: 'Add a Todo', contentPadding: EdgeInsets.all(8)),
-      controller: _textController,
-      onChanged: (String newValue) {
-        list.currentDescription = newValue;
-      },
-      onSubmitted: (String value) {
-        list.addTodo(value);
-        _textController.clear();
-      },
-    );
+//     return TextField(
+//       autofocus: true,
+//       decoration: InputDecoration(
+//           labelText: 'Add a Todo', contentPadding: EdgeInsets.all(8)),
+//       controller: _textController,
+//       onChanged: (String newValue) {
+//         list.currentDescription = newValue;
+//       },
+//       onSubmitted: (String value) {
+//         list.addTodo(value);
+//         _textController.clear();
+//       },
+//     );
+//   }
+// }
+
+// class ActionBar extends StatelessWidget {
+//   @override
+//   Widget build(BuildContext context) {
+//     final list = Provider.of<TodoList>(context);
+
+//     return Observer(
+//       builder: (_) {
+//         final selections = VisibilityFilter.values
+//             .map((f) => f == list.filter)
+//             .toList(growable: false);
+//         return Column(
+//           children: [
+//             Padding(
+//               padding: EdgeInsets.only(top: 8),
+//               child: ToggleButtons(
+//                 borderRadius: BorderRadius.circular(8),
+//                 children: [
+//                   Padding(
+//                     padding: EdgeInsets.only(left: 5, right: 5),
+//                     child: Text('All'),
+//                   ),
+//                   Padding(
+//                     padding: EdgeInsets.only(left: 5, right: 5),
+//                     child: Text('Pending'),
+//                   ),
+//                   Padding(
+//                     padding: EdgeInsets.only(left: 5, right: 5),
+//                     child: Text('Completed'),
+//                   ),
+//                 ],
+//                 onPressed: (index) {
+//                   list.filter = VisibilityFilter.values[index];
+//                 },
+//                 isSelected: selections,
+//               ),
+//             )
+//           ],
+//         );
+//       },
+//     );
+//   }
+// }
+
+// class Description extends StatelessWidget {
+//   @override
+//   Widget build(BuildContext context) {
+//     final list = Provider.of<TodoList>(context);
+
+//     return Observer(
+//       builder: (_) => Padding(
+//         padding: EdgeInsets.all(8),
+//         child: Text(
+//           list.itemsDescription,
+//           style: const TextStyle(fontWeight: FontWeight.bold),
+//         ),
+//       ),
+//     );
+//   }
+// }
+
+class TodoListView extends StatelessWidget {
+  TodoList todoList = TodoList();
+
+  TodoListView() {
+    todoList.getTheTodos();
   }
-}
-
-class ActionBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    final list = Provider.of<TodoList>(context);
+    final future = todoList.todosFuture;
 
     return Observer(
       builder: (_) {
-        final selections = VisibilityFilter.values
-            .map((f) => f == list.filter)
-            .toList(growable: false);
-        return Column(
-          children: [
-            Padding(
-              padding: EdgeInsets.only(top: 8),
-              child: ToggleButtons(
-                borderRadius: BorderRadius.circular(8),
-                children: [
-                  Padding(
-                    padding: EdgeInsets.only(left: 5, right: 5),
-                    child: Text('All'),
+        switch (future!.status) {
+          case FutureStatus.pending:
+            return Center(
+              child: CircularProgressIndicator(),
+            );
+
+          case FutureStatus.rejected:
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: <Widget>[
+                  Text(
+                    'Failed to load items.',
+                    style: TextStyle(color: Colors.red),
                   ),
-                  Padding(
-                    padding: EdgeInsets.only(left: 5, right: 5),
-                    child: Text('Pending'),
+                  SizedBox(
+                    height: 10,
                   ),
-                  Padding(
-                    padding: EdgeInsets.only(left: 5, right: 5),
-                    child: Text('Completed'),
-                  ),
+                  RaisedButton(
+                    child: const Text('Tap to retry'),
+                    onPressed: _refresh,
+                  )
                 ],
-                onPressed: (index) {
-                  list.filter = VisibilityFilter.values[index];
-                },
-                isSelected: selections,
               ),
-            )
-          ],
-        );
+            );
+          case FutureStatus.fulfilled:
+            final List<Todo> posts = future.result;
+            print(posts);
+            return RefreshIndicator(
+              onRefresh: _refresh,
+              child: SizedBox(
+                height: 200,
+                child: ListView.builder(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  itemCount: posts.length,
+                  itemBuilder: (context, index) {
+                    final post = posts[index];
+                    return ExpansionTile(
+                      title: Text(
+                        post.description!,
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            );
+            break;
+        }
       },
     );
   }
+
+  Future _refresh() => todoList.fetchTodos();
 }
 
-class Description extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final list = Provider.of<TodoList>(context);
+            // case: FutureStatus.rejected:
+            // return Center(
+            //   child: Column(
+            //     mainAxisAlignment: MainAxisAlignment.center,
+            //     children: <Widget>[
+            //       Text(
+            //         'Failed to load items.',
+            //         style: TextStyle(color: Colors.red),
+            //       ),
+            //       SizedBox(
+            //         height: 10,
+            //       ),
+            //       RaisedButton(
+            //         child: const Text('Tap to retry'),
+            //         onPressed: _refresh,
+            //       )
+            //     ],
+            //   ),
+            // );
 
-    return Observer(
-      builder: (_) => Padding(
-        padding: EdgeInsets.all(8),
-        child: Text(
-          list.itemsDescription,
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-      ),
-    );
-  }
-}
-
-class TodoListView extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final list = Provider.of<TodoList>(context);
-
-    return Observer(
-        builder: (_) => Flexible(
-            child: ListView.builder(
-                itemCount: list.visibleTodos.length,
-                itemBuilder: (_, index) {
-                  final todo = list.visibleTodos[index];
-                  return Observer(
-                    builder: (_) => CheckboxListTile(
-                      value: todo.done,
-                      onChanged: (flag) => todo.done = flag!,
-                      controlAffinity: ListTileControlAffinity.leading,
-                      title: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              todo.description,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          IconButton(
-                              onPressed: () => list.removeTodo(todo),
-                              icon: Icon(Icons.delete))
-                        ],
-                      ),
-                    ),
-                  );
-                })));
-  }
-}
+            // case FutureStatus.fulfilled:
+            // final List<Todo> todos=future.result;
+            // return RefreshIndicator(
+            //   onRefresh: _refresh,
+            //   child:
+            // )
+            // default:

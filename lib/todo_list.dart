@@ -2,6 +2,7 @@ import 'package:dart_json_mapper/dart_json_mapper.dart';
 import 'package:flutter/foundation.dart';
 import 'package:mobx/mobx.dart';
 
+import 'NetworkService.dart';
 import 'todo.dart';
 
 part 'todo_list.g.dart';
@@ -13,82 +14,17 @@ class TodoList extends _TodoList with _$TodoList {}
 
 @jsonSerializable
 abstract class _TodoList with Store {
-  @observable
-  ObservableList<Todo> todos = ObservableList<Todo>();
+  final NetworkService httpClient = NetworkService();
 
   @observable
-  @JsonProperty(defaultValue: VisibilityFilter.values)
-  VisibilityFilter filter = VisibilityFilter.all;
-
-  @observable
-  String currentDescription = '';
-
-  @computed
-  ObservableList<Todo> get pendingTodos =>
-      ObservableList.of(todos.where((todo) => todo.done != true));
-
-  @computed
-  ObservableList<Todo> get completedTodos =>
-      ObservableList.of(todos.where((todo) => todo.done == true));
-
-  @computed
-  bool get hasCompeteTodos => completedTodos.isNotEmpty;
-
-  @computed
-  bool get hasPendingTodos => pendingTodos.isNotEmpty;
-
-  @computed
-  String get itemsDescription {
-    if (todos.isEmpty) {
-      return "There are no todos here why dont you add one";
-    }
-
-    final suffix = pendingTodos.length == 1 ? 'todos' : 'todos';
-    return '${pendingTodos.length} pending $suffix, ${completedTodos.length} completed';
-  }
-
-  @computed
-  @JsonProperty(ignore: true)
-  ObservableList<Todo> get visibleTodos {
-    switch (filter) {
-      case VisibilityFilter.pending:
-        return pendingTodos;
-      case VisibilityFilter.completed:
-        return completedTodos;
-      default:
-        return todos;
-    }
-  }
-
-  @computed
-  bool get canRemoveAllCompleted =>
-      hasCompeteTodos && filter != VisibilityFilter.pending;
-
-  @computed
-  bool get canMarkAllCompleted =>
-      hasPendingTodos && filter != VisibilityFilter.completed;
+  ObservableFuture<List<Todo>>? todosFuture;
 
   @action
-  void addTodo(String description) {
-    final todo = Todo(description);
-    todos.add(todo);
-    currentDescription = '';
-  }
+  Future fetchTodos() => todosFuture = ObservableFuture(httpClient
+      .getData('https://tiny-list.herokuapp.com/api/v1/users/1/tasks')
+      .then((todos) => todos));
 
-  @action
-  void removeTodo(Todo todo) {
-    todos.removeWhere((element) => element == todo);
-  }
-
-  @action
-  void removeCompleted() {
-    todos.removeWhere((todo) => todo.done);
-  }
-
-  @action
-  void markAllAsCompleted() {
-    for (final todo in todos) {
-      todo.done = true;
-    }
+  void getTheTodos() {
+    fetchTodos();
   }
 }
