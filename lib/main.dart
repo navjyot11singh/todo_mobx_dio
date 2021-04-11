@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:provider/provider.dart';
-import 'package:todo_mobx_dio_real/todo.dart';
+import 'package:todo_mobx_dio_real/Response/todo.dart';
 import 'package:todo_mobx_dio_real/todo_list.dart';
 import 'package:mobx/mobx.dart';
 
@@ -17,15 +17,6 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Todo App',
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // Try running your application with "flutter run". You'll see the
-        // application has a blue toolbar. Then, without quitting the app, try
-        // changing the primarySwatch below to Colors.green and then invoke
-        // "hot reload" (press "r" in the console where you ran "flutter run",
-        // or simply save your changes to "hot reload" in a Flutter IDE).
-        // Notice that the counter didn't reset back to zero; the application
-        // is not restarted.
         primarySwatch: Colors.blue,
       ),
       home: TodoScreen(),
@@ -41,7 +32,7 @@ class TodoScreen extends StatelessWidget {
           child: Scaffold(
             body: Column(
               children: [
-                // AddTodo(),
+                AddTodo(),
                 // ActionBar(),
                 // Description(),
                 TodoListView(),
@@ -52,30 +43,164 @@ class TodoScreen extends StatelessWidget {
       );
 }
 
-// class AddTodo extends StatelessWidget {
-//   final _textController = TextEditingController(text: '');
+class AddTodo extends StatelessWidget {
+  final _textController = TextEditingController(text: '');
 
-//   @override
-//   Widget build(BuildContext context) {
-//     final list = Provider.of<TodoList>(context);
+  @override
+  Widget build(BuildContext context) {
+    TodoList todoList = TodoList();
 
-//     return TextField(
-//       autofocus: true,
-//       decoration: InputDecoration(
-//           labelText: 'Add a Todo', contentPadding: EdgeInsets.all(8)),
-//       controller: _textController,
-//       onChanged: (String newValue) {
-//         list.currentDescription = newValue;
-//       },
-//       onSubmitted: (String value) {
-//         list.addTodo(value);
-//         _textController.clear();
-//       },
-//     );
-//   }
-// }
+    final list = Provider.of<TodoList>(context);
 
-// class ActionBar extends StatelessWidget {
+    return TextField(
+      autofocus: true,
+      decoration: InputDecoration(
+          labelText: 'Add a Todo', contentPadding: EdgeInsets.all(8)),
+      controller: _textController,
+      // onChanged: (String newValue) {
+      //   list.currentDescription = newValue;
+      // },z
+      onSubmitted: (String value) {
+        todoList.addTheTodos(value);
+        _textController.clear();
+
+        final future = todoList.todoFuture;
+
+        switch (future!.status) {
+          case FutureStatus.pending:
+            // TODO: Handle this case.
+            break;
+          case FutureStatus.rejected:
+            // TODO: Handle this case.
+            break;
+          case FutureStatus.fulfilled:
+            list.updateList();
+            list.addSingleToList(future.result);
+            break;
+        }
+      },
+    );
+  }
+}
+
+class TodoListView extends StatelessWidget {
+  TodoList todoList = TodoList();
+
+  TodoListView() {
+    todoList.getTheTodos();
+  }
+  @override
+  Widget build(BuildContext context) {
+    final list = Provider.of<TodoList>(context);
+
+    var padding = MediaQuery.of(context).padding;
+    double height = MediaQuery.of(context).size.height;
+
+    double newheight = height - padding.top - padding.bottom;
+
+    final future = todoList.todosFuture;
+
+    return Observer(
+      builder: (_) {
+        switch (future!.status) {
+          case FutureStatus.pending:
+            return Center(
+              child: CircularProgressIndicator(),
+            );
+
+          case FutureStatus.rejected:
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: <Widget>[
+                  Text(
+                    'Failed to load items.',
+                    style: TextStyle(color: Colors.red),
+                  ),
+                  SizedBox(
+                    height: 10,
+                  ),
+                  RaisedButton(
+                    child: const Text('Tap to retry'),
+                    onPressed: () {},
+                  )
+                ],
+              ),
+            );
+          case FutureStatus.fulfilled:
+            list.addToList(future.result);
+
+            return Flexible(
+              child: Observer(
+                builder: (_) => ListView.builder(
+                  itemCount: list.getAllTodos.length,
+                  itemBuilder: (_, index) {
+                    final todo = list.getAllTodos[index];
+                    return CheckboxListTile(
+                      value: todo.completedAt != null,
+                      onChanged: (flag) {
+                        //implement this
+                        flag = flag!;
+                      },
+                      controlAffinity: ListTileControlAffinity.leading,
+                      title: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              todo.description!,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          IconButton(
+                              onPressed: () {
+                                //implement this
+                                list.deleteTodo(todo.id.toString());
+                              },
+                              icon: Icon(Icons.delete))
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            );
+        }
+      },
+    );
+  }
+}
+  // case: FutureStatus.rejected:
+  // return Center(
+  //   child: Column(
+  //     mainAxisAlignment: MainAxisAlignment.center,
+  //     children: <Widget>[
+  //       Text(
+  //         'Failed to load items.',
+  //         style: TextStyle(color: Colors.red),
+  //       ),
+  //       SizedBox(
+  //         height: 10,
+  //       ),
+  //       RaisedButton(
+  //         child: const Text('Tap to retry'),
+  //         onPressed: _refresh,
+  //       )
+  //     ],
+  //   ),
+  // );
+
+  // case FutureStatus.fulfilled:
+  // final List<Todo> todos=future.result;
+  // return RefreshIndicator(
+  //   onRefresh: _refresh,
+  //   child:
+  // )
+  // default:
+  //
+  //
+  //
+  //
+  // class ActionBar extends StatelessWidget {
 //   @override
 //   Widget build(BuildContext context) {
 //     final list = Provider.of<TodoList>(context);
@@ -134,99 +259,3 @@ class TodoScreen extends StatelessWidget {
 //     );
 //   }
 // }
-
-class TodoListView extends StatelessWidget {
-  TodoList todoList = TodoList();
-
-  TodoListView() {
-    todoList.getTheTodos();
-  }
-  @override
-  Widget build(BuildContext context) {
-    final future = todoList.todosFuture;
-
-    return Observer(
-      builder: (_) {
-        switch (future!.status) {
-          case FutureStatus.pending:
-            return Center(
-              child: CircularProgressIndicator(),
-            );
-
-          case FutureStatus.rejected:
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: <Widget>[
-                  Text(
-                    'Failed to load items.',
-                    style: TextStyle(color: Colors.red),
-                  ),
-                  SizedBox(
-                    height: 10,
-                  ),
-                  RaisedButton(
-                    child: const Text('Tap to retry'),
-                    onPressed: _refresh,
-                  )
-                ],
-              ),
-            );
-          case FutureStatus.fulfilled:
-            final List<Todo> posts = future.result;
-            print(posts);
-            return RefreshIndicator(
-              onRefresh: _refresh,
-              child: SizedBox(
-                height: 200,
-                child: ListView.builder(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  itemCount: posts.length,
-                  itemBuilder: (context, index) {
-                    final post = posts[index];
-                    return ExpansionTile(
-                      title: Text(
-                        post.description!,
-                        style: TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            );
-            break;
-        }
-      },
-    );
-  }
-
-  Future _refresh() => todoList.fetchTodos();
-}
-
-            // case: FutureStatus.rejected:
-            // return Center(
-            //   child: Column(
-            //     mainAxisAlignment: MainAxisAlignment.center,
-            //     children: <Widget>[
-            //       Text(
-            //         'Failed to load items.',
-            //         style: TextStyle(color: Colors.red),
-            //       ),
-            //       SizedBox(
-            //         height: 10,
-            //       ),
-            //       RaisedButton(
-            //         child: const Text('Tap to retry'),
-            //         onPressed: _refresh,
-            //       )
-            //     ],
-            //   ),
-            // );
-
-            // case FutureStatus.fulfilled:
-            // final List<Todo> todos=future.result;
-            // return RefreshIndicator(
-            //   onRefresh: _refresh,
-            //   child:
-            // )
-            // default:
