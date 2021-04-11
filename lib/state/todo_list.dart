@@ -2,8 +2,8 @@ import 'package:dart_json_mapper/dart_json_mapper.dart';
 import 'package:flutter/foundation.dart';
 import 'package:mobx/mobx.dart';
 
-import 'NetworkService.dart';
-import 'Response/todo.dart';
+import '../Services/NetworkService.dart';
+import '../Response/todo.dart';
 
 part 'todo_list.g.dart';
 
@@ -14,6 +14,7 @@ class TodoList extends _TodoList with _$TodoList {}
 
 @jsonSerializable
 abstract class _TodoList with Store {
+  //Network client
   final NetworkService httpClient = NetworkService();
 
   @observable
@@ -46,6 +47,7 @@ abstract class _TodoList with Store {
   @computed
   bool get hasPendingTodos => pendingTodos.isNotEmpty;
 
+//---------------------returns a string that is used to tell the total no of respective todos-------------
   @computed
   String get itemsDescription {
     if (todos.isEmpty) {
@@ -56,6 +58,7 @@ abstract class _TodoList with Store {
     return '${pendingTodos.length} pending $suffix, ${completedTodos.length} completed';
   }
 
+//-----------------------method used to filer the todo in three parts i.e pending all and completed----------
   @computed
   @JsonProperty(ignore: true)
   ObservableList<Todo> get visibleTodos {
@@ -73,6 +76,7 @@ abstract class _TodoList with Store {
     }
   }
 
+//---------------fetch all todos from the network----------------------
   @action
   Future fetchTodos() => todosFuture = ObservableFuture(httpClient
           .getData('https://tiny-list.herokuapp.com/api/v1/users/1/tasks')
@@ -81,6 +85,7 @@ abstract class _TodoList with Store {
         return todoList;
       }));
 
+//--------we can use these two to makr and unmark all for this new api needs to be developed------------
   @computed
   bool get canRemoveAllCompleted =>
       hasCompeteTodos && filter != VisibilityFilter.pending;
@@ -99,6 +104,7 @@ abstract class _TodoList with Store {
     currentDescription = '';
   }
 
+  //------------------------function to add new todo to the database--------------------
   @action
   Future addTodoToNetwork(String description) => todoFuture = ObservableFuture(
         httpClient
@@ -119,6 +125,7 @@ abstract class _TodoList with Store {
     this.deleteTodoFromNetwork(id);
   }
 
+  //------------------------function to delee todo--------------------
   @action
   Future deleteTodoFromNetwork(String id) =>
       todoFuture = ObservableFuture(httpClient
@@ -127,20 +134,49 @@ abstract class _TodoList with Store {
           .then((todo) {
         print(todo);
         if (todo == "deleted") {
-          todos.removeWhere((element) => element.id == id);
+          todos.removeWhere((element) => element.id.toString() == id);
         }
         return todo;
       }));
 
-  // @action
-  // void removeCompleted() {
-  //   todos.removeWhere((todo) => todo.done);
-  // }
+  //------------------------function to mark the todo complete--------------------
+  @action
+  Future markCompleteTodos(String id) =>
+      todosFuture = ObservableFuture(httpClient
+          .completeData(
+              'https://tiny-list.herokuapp.com/api/v1/users/1/tasks/${id}/completed')
+          .then((todo) {
+        final index =
+            todos.indexWhere((element) => element.id.toString() == id);
+        todos[index] = todo;
+        return todo;
+      }));
 
-  // @action
-  // void markAllAsCompleted() {
-  //   for (final todo in todos) {
-  //     todo.done = true;
-  //   }
-  // }
+  //------------------------function to unmark the already todo--------------------
+  @action
+  Future unmarkCompleteTodos(String id) =>
+      todosFuture = ObservableFuture(httpClient
+          .uncompleteData(
+              'https://tiny-list.herokuapp.com/api/v1/users/1/tasks/${id}/uncompleted')
+          .then((todo) {
+        final index =
+            todos.indexWhere((element) => element.id.toString() == id);
+        todos[index] = todo;
+        return todo;
+      }));
+
+  //------------------------function to update todo--------------------
+  @action
+  Future updateTodo(String id, String description) =>
+      todosFuture = ObservableFuture(httpClient
+          .updateData('https://tiny-list.herokuapp.com/api/v1/users/1/tasks/id',
+              description)
+          .then((todo) {
+        print(todo);
+
+        final index =
+            todos.indexWhere((element) => element.id.toString() == id);
+        todos[index] = todo;
+        return todo;
+      }));
 }
