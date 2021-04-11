@@ -17,80 +17,130 @@ abstract class _TodoList with Store {
   final NetworkService httpClient = NetworkService();
 
   @observable
-  ObservableFuture<List<Todo>>? todosFuture;
-
-  @observable
   ObservableList<Todo> todos = ObservableList<Todo>();
 
   @observable
+  @JsonProperty(defaultValue: VisibilityFilter.values)
+  VisibilityFilter filter = VisibilityFilter.all;
+
+  @observable
+  String currentDescription = '';
+
+  @observable
   ObservableFuture<Todo>? todoFuture;
+
+  @observable
+  ObservableFuture<List<Todo>>? todosFuture;
+
+  @computed
+  ObservableList<Todo> get pendingTodos =>
+      ObservableList.of(todos.where((todo) => todo.completedAt == null));
+
+  @computed
+  ObservableList<Todo> get completedTodos =>
+      ObservableList.of(todos.where((todo) => todo.completedAt != null));
+
+  @computed
+  bool get hasCompeteTodos => completedTodos.isNotEmpty;
+
+  @computed
+  bool get hasPendingTodos => pendingTodos.isNotEmpty;
+
+  @computed
+  String get itemsDescription {
+    if (todos.isEmpty) {
+      return "There are no todos here why dont you add one";
+    }
+
+    final suffix = pendingTodos.length == 1 ? 'todos' : 'todos';
+    return '${pendingTodos.length} pending $suffix, ${completedTodos.length} completed';
+  }
+
+  @computed
+  @JsonProperty(ignore: true)
+  ObservableList<Todo> get visibleTodos {
+    // this.fetchTodos();
+    // if (todosFuture!.status == FutureStatus.fulfilled) {
+    //   todos = todosFuture!.result;
+    // }
+    switch (filter) {
+      case VisibilityFilter.pending:
+        return pendingTodos;
+      case VisibilityFilter.completed:
+        return completedTodos;
+      default:
+        return todos;
+    }
+  }
 
   @action
   Future fetchTodos() => todosFuture = ObservableFuture(httpClient
           .getData('https://tiny-list.herokuapp.com/api/v1/users/1/tasks')
           .then((todoList) {
-        this.updateList();
+        todos.addAll(todoList);
         return todoList;
       }));
 
-  void getTheTodos() {
-    fetchTodos();
+  @computed
+  bool get canRemoveAllCompleted =>
+      hasCompeteTodos && filter != VisibilityFilter.pending;
+
+  @computed
+  bool get canMarkAllCompleted =>
+      hasPendingTodos && filter != VisibilityFilter.completed;
+
+  @action
+  void addTodo(String description) {
+    addTodoToNetwork(description);
+    // if (todoFuture!.status == FutureStatus.fulfilled) {
+    //   todos.add(todoFuture!.result);
+    //   print(todos);
+    // }
+    currentDescription = '';
   }
 
   @action
-  Future addTodo(String description) => todoFuture = ObservableFuture(
+  Future addTodoToNetwork(String description) => todoFuture = ObservableFuture(
         httpClient
             .postData('https://tiny-list.herokuapp.com/api/v1/users/1/tasks',
                 description)
             .then(
           (todo) {
             // this.addSingleToList(todo);
-            this.updateList();
+            print(todo);
+            todos.add(todo);
             return todo();
           },
         ),
       );
 
   @action
-  Future deleteTodo(String id) => todoFuture = ObservableFuture(httpClient
+  void removeTodo(String id) {
+    this.deleteTodoFromNetwork(id);
+  }
+
+  @action
+  Future deleteTodoFromNetwork(String id) =>
+      todoFuture = ObservableFuture(httpClient
           .deleteData(
               'https://tiny-list.herokuapp.com/api/v1/users/1/tasks/${id}')
           .then((todo) {
-        this.updateList();
+        print(todo);
+        if (todo == "deleted") {
+          todos.removeWhere((element) => element.id == id);
+        }
         return todo;
       }));
 
-  void addTheTodos(String description) {
-    addTodo(description);
-  }
+  // @action
+  // void removeCompleted() {
+  //   todos.removeWhere((todo) => todo.done);
+  // }
 
-  // @JsonProperty(ignore: true)
-  //
-
-  @computed
-  ObservableList<Todo> get getAllTodos {
-    // print(todos);
-    return todos;
-  }
-
-  @action
-  void addToList(List<Todo> list) {
-    print(list);
-    for (int i = 0; i < list.length; i++) todos.add(list[i]);
-  }
-
-  @action
-  void addSingleToList(Todo todo) {
-    print(todo);
-    todos.add(todo);
-  }
-
-  @action
-  void updateList() {
-    this.fetchTodos();
-    final future = todosFuture;
-    if (future!.status == FutureStatus.fulfilled) {
-      todos = future.result;
-    }
-  }
+  // @action
+  // void markAllAsCompleted() {
+  //   for (final todo in todos) {
+  //     todo.done = true;
+  //   }
+  // }
 }
